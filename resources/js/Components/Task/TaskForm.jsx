@@ -1,10 +1,8 @@
-// src/components/TaskForm.js
-
 import { useForm } from "@inertiajs/react";
 import React, { useEffect, useState } from "react";
 
 const TaskForm = ({ oldTask }) => {
-    const { data, setData, post, errors, clearErrors, reset, recentlySuccessful } = useForm({
+    const { data, setData, post, errors, clearErrors, reset } = useForm({
         title      : "",
         description: "",
         deadline_at: "",
@@ -27,12 +25,7 @@ const TaskForm = ({ oldTask }) => {
 
     const handleSubmit = (e) => {
         e.preventDefault();
-        if (oldTask?.id) {
-            // patch(route("admin.coupons.update", oldCoupon?.id));
-        } else {
-            post(route("tasks.store"));
-        }
-        console.log('recentlySuccessful:', recentlySuccessful);
+        post(route("tasks.store"));
         reset();
     };
 

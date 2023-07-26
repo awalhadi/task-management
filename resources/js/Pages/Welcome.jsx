@@ -1,6 +1,6 @@
 import { Link, Head } from '@inertiajs/react';
 
-export default function Welcome({ auth, laravelVersion, phpVersion }) {
+export default function Welcome({ auth }) {
     return (
         <>
             <Head title="Welcome" />
@@ -37,7 +37,7 @@ export default function Welcome({ auth, laravelVersion, phpVersion }) {
                         <h1 className='text-2xl'>Welcome to Task Management System</h1>
 
                         <p>You can assign task and create task and also register  and login</p>
-                        
+
                     </div>
 
 

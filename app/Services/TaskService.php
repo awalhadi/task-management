@@ -3,8 +3,12 @@
 namespace App\Services;
 
 use App\Models\Task;
+use App\Models\User;
+use App\Models\TaskAssignee;
+use App\Notifications\TaskAssigned;
 use Illuminate\Support\Facades\Auth;
 use App\Services\Response\ResponseService;
+use Illuminate\Support\Facades\Notification;
 
 class TaskService
 {
@@ -18,7 +22,7 @@ class TaskService
         $this->response  = new ResponseService();
     }
 
-    // task query handler
+    // Task query handler - returns the initial query builder
     protected function initialQuery()
     {
         $query = $this->model::latest();
@@ -26,34 +30,32 @@ class TaskService
         return $query;
     }
 
+    // Get latest tasks for the authenticated user
     public function getLatest()
     {
-        return $this->initialQuery()->select('title', 'description', 'deadline_at')->with('created_by')->paginate(10);
+        $user = auth()->user();
+
+        // Retrieve tasks along with their assigneesUsers and assignees' users
+        return $this->initialQuery()->with(['assignees', 'assigneesUsers'])
+            ->where('user_id', $user->id)
+            ->orWhereHas('assignees', function ($query) use ($user) {
+                $query->where('assignee_id', $user->id);
+            })
+            ->paginate(10);
     }
 
-    public function getTaskIndexData()
+    // Get tasks for the authenticated user
+    public function authUserTasks()
     {
-        $query = request()->task;
-
-        if (isset($query) && strlen($query) > 0) {
-            $tasks = $this->getTaskSearch($query);
-        } else {
-        }
         $tasks = $this->getLatest();
 
         return [
             'tasks'    => $tasks,
         ];
     }
-
-    public function getTaskSearch($query)
-    {
-        $tasks = $this->initialQuery()->where('title', 'LIKE', "%{$query}%")->paginate(10);
-
-        return $tasks;
-    }
-
     // task query handler
+
+
 
     // task CRUD handler
     public function createTask(array $data)
@@ -66,11 +68,11 @@ class TaskService
                 'deadline_at' => $data['deadline_at'],
             ]);
 
-            $res    = $this->response->withSuccess(trans('Task added successfully'), $task);
+            $res    = $this->response->withSuccess('Task added successfully', $task);
 
             return $res;
         } catch (\Exception $ex) {
-            $res = $this->response->withFailed(trans('Task added failed'));
+            $res = $this->response->withFailed('Task added failed');
 
             return $res;
         }
@@ -78,32 +80,62 @@ class TaskService
 
     public function updateTask(Task $task, array $data)
     {
-        // Validate and process the task update data
         try {
-            $task->title        = $data['title'];
-            $task->description  = $data['description'];
-            $task->deadline_at  = $data['deadline_at'];
+            $task->title       = $data['title'];
+            $task->description = $data['description'];
+            // $task->user_id     = Auth::id();
+            $task->deadline_at = $data['deadline_at'];
             $task->save();
 
-            $res                = $this->response->withSuccess(trans('Update success'), $task);
+            $res                = $this->response->withSuccess('Task update success', $task);
 
             return $res;
         } catch (\Exception $ex) {
-            $res = $this->response->withFailed(trans('Update failed'));
+            $res = $this->response->withFailed('Task update failed');
 
             return $res;
         }
     }
 
-    public function deleteCoupon(Task $task)
+    public function deleteTask(Task $task)
     {
         try {
             $task->delete();
-            $res = $this->response->withSuccess(trans('Delete success'), $task);
+            $res = $this->response->withSuccess('Task delete success', $task);
 
             return $res;
         } catch (\Exception $ex) {
-            $res = $this->response->withFailed(trans('Delate failed'));
+            $res = $this->response->withFailed('Task delate failed');
+
+            return $res;
+        }
+    }
+
+    public function assign(array $data)
+    {
+        try {
+            $task = $this->model::where('id', $data['task_id'])->first();
+            $user = User::where('id', $data['assignee_id'])->first();
+
+            if (!$task->assignees()->where('assignee_id', $data['assignee_id'])->exists()) {
+                // If the user is not already assigned to the task, assign them
+                $task->assignees()->create(['assignee_id' => $data['assignee_id']]);
+
+                $res = $this->response->withSuccess('Task assign success', $task);
+
+                // send email notification to the assigned user here
+                // $user->notify(new TaskAssigned($task));
+                Notification::send($user, new TaskAssigned($task));
+
+                return $res;
+            } else {
+                // If the user is already assigned to the task, return a success response
+                $res = $this->response->withSuccess('Already assigned', $task);
+
+                return $res;
+            }
+        } catch (\Exception $ex) {
+            $res = $this->response->withFailed('Task assign failed');
 
             return $res;
         }

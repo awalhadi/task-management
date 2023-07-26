@@ -20,7 +20,6 @@ const useToastNotify = () => {
 
 
   useEffect(()=>{
-    console.log("notifyStatus:", notifyStatus, "notify:", notify);
     if (notifyStatus && notify) {
         toast[notifyStatus](notify, {
             position       : "top-right",
